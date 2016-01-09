@@ -267,14 +267,17 @@
 	// to the existing room
 	function createRoom(){
 		var room = $('#addroom-popup .input input').val().trim();
+        console.log(room);
 		if(room && room.length <= ROOM_MAX_LENGTH && room != currentRoom){
 			
 			// show room creating message
+            /*
 			$('.chat-shadow').show().find('.content').html('Creating room: ' + room + '...');
 			$('.chat-shadow').animate({ 'opacity': 1 }, 200);
+            */
 			
 			// unsubscribe from the current room
-			socket.emit('unsubscribe', { room: currentRoom });
+			//socket.emit('unsubscribe', { room: currentRoom });
 
 			// create and subscribe to the new room
 			socket.emit('subscribe', { room: room });
