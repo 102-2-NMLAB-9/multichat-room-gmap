@@ -6,16 +6,39 @@ Array.remove = function(array, from, to) {
 
 //this variable represents the total number of popups can be displayed according to the viewport width
 var total_popups = 0;
+var serverAddress = '';
+var NICK_MAX_LENGTH = 15;
+var ROOM_MAX_LENGTH = 10;
+var socket = null;
+var clientId = null;
+var nickname = null;
+var currentRoom = null;
+var serverDisplayName = 'Server';
+var tmplt = {
+    room: [
+        '<li data-roomId="${room}">',
+            '<span class="icon"></span> ${room}',
+        '</li>'
+    ].join(""),
+    client: [
+        '<li data-clientId="${clientId}" class="cf">',
+            '<div class="fl clientName"><span class="icon"></span> ${nickname}</div>',
+            '<div class="fr composing"></div>',
+        '</li>'
+    ].join(""),
+    message: [
+        '<li class="cf">',
+            '<div class="fl sender">${sender}: </div><div class="fl text">${text}</div><div class="fr time">${time}</div>',
+        '</li>'
+    ].join("")
+};
+
 
 //arrays of popups ids
-var popups = [];
+popups = [];
+
 
 function handleNickname(){
-    $('#nickname-popup .input input').val('');
-    Avgrund.show('#nickname-popup');
-    window.setTimeout(function(){
-            $('#nickname-popup .input input').focus();
-            },100);
     var nick = $('#nickname-popup .input input').val().trim();
     console.log(nick);
     if(nick && nick.length <= NICK_MAX_LENGTH){
@@ -26,6 +49,77 @@ function handleNickname(){
         shake('#nickname-popup', '#nickname-popup .input input', 'tada', 'yellow');
         $('#nickname-popup .input input').val('');
     }
+}
+
+$(function(){ bindDOMEvents(); });
+
+function createRoom(){
+    var room = $('#addroom-popup .input input').val().trim();
+    console.log(room);
+    if(room && room.length <= ROOM_MAX_LENGTH && room != currentRoom){
+        // create and subscribe to the new room
+        socket.emit('subscribe', { room: room });
+        Avgrund.hide();
+
+        register_popup(room, room);
+        placeMarker();
+    } else {
+        shake('#addroom-popup', '#addroom-popup .input input', 'tada', 'yellow');
+        $('#addroom-popup .input input').val('');
+    }
+}
+
+function bindDOMEvents(){
+    $('.chat-input input').on('keydown', function(e){
+            var key = e.which || e.keyCode;
+            if(key == 13) { handleMessage(); }
+            });
+    $('.chat-submit button').on('click', function(){
+            handleMessage();
+            });
+    $('#nickname-popup .input input').on('keydown', function(e){
+            var key = e.which || e.keyCode;
+            if(key == 13) { handleNickname(); }
+            });
+
+    $('#nickname-popup .begin').on('click', function(){
+            handleNickname();
+            });
+
+    $('#addroom-popup .input input').on('keydown', function(e){
+            var key = e.which || e.keyCode;
+            if(key == 13) { createRoom(); }
+            });
+    $('#addroom-popup .create').on('click', function(){
+            createRoom();
+            });
+    $('.chat-rooms .title-button').on('click', function(){
+            $('#addroom-popup .input input').val('');
+            Avgrund.show('#addroom-popup');
+            window.setTimeout(function(){
+                $('#addroom-popup .input input').focus();
+                },100);
+            });
+    $('.chat-rooms ul').on('scroll', function(){
+            $('.chat-rooms ul li.selected').css('top', $(this).scrollTop());
+            });
+    $('.chat-messages').on('scroll', function(){
+            var self = this;
+            window.setTimeout(function(){
+                if($(self).scrollTop() + $(self).height() < $(self).find('ul').height()){
+                $(self).addClass('scroll');
+                } else {
+                $(self).removeClass('scroll');
+                }
+                }, 50);
+            });
+    $('.chat-rooms ul li').live('click', function(){
+            var room = $(this).attr('data-roomId');
+            if(room != currentRoom){
+            socket.emit('unsubscribe', { room: currentRoom });
+            socket.emit('subscribe', { room: room });
+            }
+            });
 }
 
 function bindSocketEvents(){
@@ -182,17 +276,13 @@ function display_popups()
 function register_popup(id, name)
 {
 
-    for(var iii = 0; iii < popups.length; iii++)
-    {   
+    for(var iii = 0; iii < popups.length; iii++) {   
         //already registered. Bring it to front.
-        if(id == popups[iii])
-        {
+        if(id == popups[iii]) {
             Array.remove(popups, iii);
 
             popups.unshift(id);
-
             calculate_popups();
-
 
             return;
         }
@@ -204,12 +294,52 @@ function register_popup(id, name)
     element = element + '<div class="popup-head-right"><a href="javascript:close_popup(\''+ id +'\');">&#10005;</a></div>';
     element = element + '<div style="clear: both"></div></div><div class="popup-messages"></div></div>';
 
-    document.getElementsByTagName("body")[0].innerHTML = document.getElementsByTagName("body")[0].innerHTML + element;  
-
+    $( "body" ).append(element);
     popups.unshift(id);
 
     calculate_popups();
+}
 
+function addRoom(name, announce){
+    // clear the trailing '/'
+    name = name.replace('/','');
+    // check if the room is not already in the list
+    if($('.chat-rooms ul li[data-roomId="' + name + '"]').length == 0){
+        $.tmpl(tmplt.room, { room: name }).appendTo('.chat-rooms ul');
+        // if announce is true, show a message about this room
+        if(announce){
+            insertMessage(serverDisplayName, 'The room `' + name + '` created...', true, false, true);
+        }
+    }
+}
+// remove a room from the rooms list
+function removeRoom(name, announce){
+    $('.chat-rooms ul li[data-roomId="' + name + '"]').remove();
+    // if announce is true, show a message about this room
+    if(announce){
+        insertMessage(serverDisplayName, 'The room `' + name + '` destroyed...', true, false, true);
+    }
+}
+// add a client to the clients list
+function addClient(client, announce, isMe){
+    var $html = $.tmpl(tmplt.client, client);
+    // if this is our client, mark him with color
+    if(isMe){
+        $html.addClass('me');
+    }
+    // if announce is true, show a message about this client
+    if(announce){
+        insertMessage(serverDisplayName, client.nickname + ' has joined the room...', true, false, true);
+    }
+    $html.appendTo('.chat-clients ul')
+}
+// remove a client from the clients list
+function removeClient(client, announce){
+    $('.chat-clients ul li[data-clientId="' + client.clientId + '"]').remove();
+    // if announce is true, show a message about this room
+    if(announce){
+        insertMessage(serverDisplayName, client.nickname + ' has left the room...', true, false, true);
+    }
 }
 
 //calculate the total number of popups suitable and then populate the toatal_popups variable.

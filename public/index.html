@@ -31,14 +31,18 @@
 <script type="text/javascript" src="/socket.io/socket.io.js"></script>
 <script type="text/javascript" src="/scripts/chatroom.js"></script>
 <script type="text/javascript" src="/scripts/avgrund.js"></script>
-<script type="text/javascript" src="/scripts/chat.io.js"></script>
 <script type="text/javascript"
     src="http://maps.googleapis.com/maps/api/js?key=AIzaSyAeOp9cC41LZc1EtZKmiWzOn0ol6Vd66TQ&sensor=false"></script>
 <script type="text/javascript">
     var map;
     var markers = [];
+    var lct;
     function initialize() {
-        handleNickname();
+        $('#nickname-popup .input input').val('');
+        Avgrund.show('#nickname-popup');
+        window.setTimeout(function(){
+            $('#nickname-popup .input input').focus();
+        },100);
         var mapOptions = {
             zoom: 8,
             center: new google.maps.LatLng(23.5, 120.644),
@@ -47,44 +51,49 @@
         map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
 
         google.maps.event.addListener(map, 'click', function(event) {
-            placeMarker(event.latLng);
+            lct = event.latLng;
+            room_name();
+//            placeMarker(event.latLng);
         });
     }
     google.maps.event.addDomListener(window, 'load', initialize);
 
-    function placeMarker(location) {
-        var marker = new google.maps.Marker({
-            position: location,
-            title: "hello world",
-            map: map
-        });
-        markers.push(marker);
+    function room_name(){
         $('#addroom-popup .input input').val('');
         Avgrund.show('#addroom-popup');
         window.setTimeout(function(){
             $('#addroom-popup .input input').focus();
         },100);
-        google.maps.event.addListener(marker, 'click', function() {
-            register_popup('hello', 'Hello');
-            map.setZoom(8);
-            map.setCenter(marker.getPosition());
-            marker.position = map.getCenter();
-        });
     }
 
+    function placeMarker() {
+        var marker = new google.maps.Marker({
+            position: lct,
+            title: popups[0],
+            map: map
+        });
+        markers.push(marker);
+        google.maps.event.addListener(marker, 'click', function() {
+                map.setZoom(8);
+                map.setCenter(marker.getPosition());
+                marker.position = map.getCenter();
+                });
+    }
+    
     function deleteMarkers() {
         for (var i = 0; i < markers.length; i++) {
             markers[i].setMap(null);
         }
         markers = [];
     }
+
 </script>
 </head>
 
 <body>
 <div id="map-canvas"></div>
 <div id="panel">
-    <input onclick="deleteMarkers();" type=button value="Delete Markers">
+<input onclick="deleteMarkers();" type=button value="Delete Markers">
 </div>
 
 <aside id="nickname-popup" class="popup animate avgrund-popup">
