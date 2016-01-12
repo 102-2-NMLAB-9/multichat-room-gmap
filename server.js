@@ -140,7 +140,9 @@ function subscribe(socket, data){
 	// check if this room is exist, if not, update all 
 	// other clients about this new room
 	if(rooms.indexOf('/' + data.room) < 0){
+//        console.log("Room: "+data.room+", location: ("+data.locat.lat+", "+data.locat.lng+")");
 		socket.broadcast.emit('addroom', { room: data.room, locat: data.locat });
+        socket.emit('roomclients', { room: data.room, locat: data.locat,clients: getClientsInRoom(socket.id, data.room) });
         roomAddr.push(data);
 	}
 
@@ -153,7 +155,6 @@ function subscribe(socket, data){
 
 	// send to the client a list of all subscribed clients
 	// in this room
-	socket.emit('roomclients', { room: data.room, clients: getClientsInRoom(socket.id, data.room) });
 }
 
 // unsubscribe a client from a room, this can be
@@ -232,7 +233,7 @@ function countClientsInRoom(room){
 function updatePresence(room, socket, state){
 	// socket.io may add a trailing '/' to the
 	// room name so we are clearing it
-    console.log(room);
+//    console.log(room);
 	room = room.replace('/','');
 
 	// by using 'socket.broadcast' we can send/emit

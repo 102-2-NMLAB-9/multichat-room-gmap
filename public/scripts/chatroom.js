@@ -13,7 +13,7 @@ var ROOM_MAX_LENGTH = 10;
 var socket = null;
 var clientId = null;
 var nickname = null;
-var serverDisplayName = 'Server';
+var srverDisplayName = 'Server';
 var serverDisplayColor = '#1c5380';
 var tmplt = {
     room: [
@@ -58,9 +58,8 @@ function createRoom(){
     console.log(room);
     if(room && room.length <= ROOM_MAX_LENGTH){
         // create and subscribe to the new room
-        register_popup(room, room);
-        var lct = placeMarker();
 
+console.log("lct= "+lct);
         socket.emit('subscribe', { room: room, locat: lct });
         Avgrund.hide();
     } else {
@@ -150,7 +149,7 @@ function bindSocketEvents(){
             var nickname = data.client.nickname;
             var message = data.message;
             //display the message in the chat window
-            insertMessage(nickname, message, true, false, false);
+            insertMessage(nickname, message, data.room, true, false, false);
             });
     // when we subscribes to a room, the server sends a list
     // with the clients in this room
@@ -314,6 +313,7 @@ function insertMessage(sender, message, roomName, showTime, isMe, isServer){
     if(isServer){
         $html.find('.sender').css('color', serverDisplayColor);
     }
+    console.log(target+' ul');
     $html.appendTo(target+' ul');
     $(target).animate({ scrollTop: $(target+' ul').height() }, 100);
 }
@@ -328,6 +328,10 @@ function handleMessage(input_obj, roomName){
         insertMessage(nickname, message, roomName, true, true);
         input_obj.val('');
     }
+}
+
+function click_subscribe(roomName){
+    socket.emit('subscribe', {room: roomName});
 }
 
 // return a short time format for the messages
@@ -347,6 +351,7 @@ function addRoom(name, pos, announce){
     }
     if(!isCreated){
         console.log(name);
+        console.log(pos);
         newmap_marker(pos, name);
 //        $.tmpl(tmplt.room, { room: name }).appendTo('.chat-rooms ul');
         // if announce is true, show a message about this room

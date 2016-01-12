@@ -73,6 +73,7 @@
         markers.push(marker);
         google.maps.event.addListener(marker, 'click', function() {
                 register_popup(marker.title, marker.title);
+                click_subscribe(popups[0]);
                 map.setZoom(8);
                 map.setCenter(marker.getPosition());
                 marker.position = map.getCenter();
@@ -81,6 +82,8 @@
     }
     
     function newmap_marker(locat, name) {
+        console.log(locat);
+        console.log(name);
         var marker = new google.maps.Marker({
             position: locat,
             title: name,
@@ -89,6 +92,7 @@
         markers.push(marker);
         google.maps.event.addListener(marker, 'click', function() {
             register_popup(marker.title, marker.title);
+            click_subscribe(popups[0]);
             map.setZoom(8);
             map.setCenter(marker.getPosition());
             marker.position = map.getCenter();
