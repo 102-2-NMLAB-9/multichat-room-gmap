@@ -86,6 +86,7 @@
             title: name,
             map: map
         });
+        markers.push(marker);
         google.maps.event.addListener(marker, 'click', function() {
             register_popup(marker.title, marker.title);
             map.setZoom(8);

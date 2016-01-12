@@ -174,6 +174,7 @@ function unsubscribe(socket, data){
 
 		// with 'io.sockets' we can contact all the
 		// clients that connected to the server
+        /*
 		io.sockets.emit('removeroom', { room: data.room });
         for(var i=0; i<roomAddr.length; i++) {
             if(roomAddr[i].room == data.room) {
@@ -181,6 +182,7 @@ function unsubscribe(socket, data){
                 break;
             }
         }
+        */
 	}
 }
 
