@@ -11,6 +11,8 @@ var express 	= require('express'),
     // { socketid: { clientid, nickname }, socketid: { ... } }
     chatClients = new Object();
 
+var roomAddr = [];
+
 // listening to port...
 server.listen(port);
 
@@ -95,11 +97,12 @@ function connect(socket, data){
 	socket.emit('ready', { clientId: data.clientId });
 	
 	// auto subscribe the client to the 'lobby'
-	subscribe(socket, { room: 'lobby' });
+	//subscribe(socket, { room: 'lobby' });
 
 	// sends a list of all active rooms in the
 	// server
-	socket.emit('roomslist', { rooms: getRooms() });
+	//socket.emit('roomslist', { rooms: getRooms() });
+	socket.emit('roomslist', roomAddr);
 }
 
 // when a client disconnect, unsubscribe him from
@@ -137,7 +140,8 @@ function subscribe(socket, data){
 	// check if this room is exist, if not, update all 
 	// other clients about this new room
 	if(rooms.indexOf('/' + data.room) < 0){
-		socket.broadcast.emit('addroom', { room: data.room });
+		socket.broadcast.emit('addroom', { room: data.room, locat: data.locat });
+        roomAddr.push(data);
 	}
 
 	// subscribe the client to the room
@@ -171,6 +175,12 @@ function unsubscribe(socket, data){
 		// with 'io.sockets' we can contact all the
 		// clients that connected to the server
 		io.sockets.emit('removeroom', { room: data.room });
+        for(var i=0; i<roomAddr.length; i++) {
+            if(roomAddr[i].room == data.room) {
+                roomAddr.splice(i, 1);
+                break;
+            }
+        }
 	}
 }
 
@@ -220,6 +230,7 @@ function countClientsInRoom(room){
 function updatePresence(room, socket, state){
 	// socket.io may add a trailing '/' to the
 	// room name so we are clearing it
+    console.log(room);
 	room = room.replace('/','');
 
 	// by using 'socket.broadcast' we can send/emit

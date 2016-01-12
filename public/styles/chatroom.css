@@ -67,7 +67,7 @@ body
     position: fixed;
     bottom: 0px;
     right: 220px;
-    height: 285px;
+    height: 300px;
     background-color: rgb(237, 239, 244);
     width: 300px;
     border: 1px solid rgba(29, 49, 91, .3);
@@ -102,6 +102,13 @@ body
 
 .popup-box .popup-messages
 {
-    height: 100%;
+    height: 240px;
     overflow-y: scroll;
+}
+
+.popup-box .popup-input
+{
+    width: 296px;
+    height: 28px;
+    font-size: 20px;
 }

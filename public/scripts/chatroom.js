@@ -5,6 +5,7 @@ Array.remove = function(array, from, to) {
 };
 
 //this variable represents the total number of popups can be displayed according to the viewport width
+markers = [];
 var total_popups = 0;
 var serverAddress = '';
 var NICK_MAX_LENGTH = 15;
@@ -12,8 +13,8 @@ var ROOM_MAX_LENGTH = 10;
 var socket = null;
 var clientId = null;
 var nickname = null;
-var currentRoom = null;
 var serverDisplayName = 'Server';
+var serverDisplayColor = '#1c5380';
 var tmplt = {
     room: [
         '<li data-roomId="${room}">',
@@ -56,13 +57,13 @@ $(function(){ bindDOMEvents(); });
 function createRoom(){
     var room = $('#addroom-popup .input input').val().trim();
     console.log(room);
-    if(room && room.length <= ROOM_MAX_LENGTH && room != currentRoom){
+    if(room && room.length <= ROOM_MAX_LENGTH){
         // create and subscribe to the new room
-        socket.emit('subscribe', { room: room });
+        var lct = placeMarker();
+        socket.emit('subscribe', { room: room, locat: lct });
         Avgrund.hide();
 
         register_popup(room, room);
-        placeMarker();
     } else {
         shake('#addroom-popup', '#addroom-popup .input input', 'tada', 'yellow');
         $('#addroom-popup .input input').val('');
@@ -70,13 +71,6 @@ function createRoom(){
 }
 
 function bindDOMEvents(){
-    $('.chat-input input').on('keydown', function(e){
-            var key = e.which || e.keyCode;
-            if(key == 13) { handleMessage(); }
-            });
-    $('.chat-submit button').on('click', function(){
-            handleMessage();
-            });
     $('#nickname-popup .input input').on('keydown', function(e){
             var key = e.which || e.keyCode;
             if(key == 13) { handleNickname(); }
@@ -144,13 +138,15 @@ function bindSocketEvents(){
     // after the initialize, the server sends a list of
     // all the active rooms
     socket.on('roomslist', function(data){
-            for(var i = 0, len = data.rooms.length; i < len; i++){
+            for(var i = 0, len = data.length; i < len; i++){
             // in socket.io, their is always one default room
             // without a name (empty string), every socket is automaticaly
             // joined to this room, however, we don't want this room to be
             // displayed in the rooms list
-            if(data.rooms[i] != ''){
-            addRoom(data.rooms[i], false);
+
+            if(data[i].room != ''){
+                // place marker on map
+                addRoom(data[i].room, data[i].locat, false);
             }
             }
             });
@@ -166,13 +162,13 @@ function bindSocketEvents(){
     // with the clients in this room
     socket.on('roomclients', function(data){
             // add the room name to the rooms list
-            addRoom(data.room, false);
+            addRoom(data.room, data.locat, false);
             // set the current room
-            setCurrentRoom(data.room);
+            //setCurrentRoom(data.room);
 
             // announce a welcome message
             insertMessage(serverDisplayName, 'Welcome to the room: `' + data.room + '`... enjoy!', true, false, true);
-            $('.chat-clients ul').empty();
+            //$('.chat-clients ul').empty();
             // add the clients to the clients list
             addClient({ nickname: nickname, clientId: clientId }, false, true);
             for(var i = 0, len = data.clients.length; i < len; i++){
@@ -189,7 +185,7 @@ function bindSocketEvents(){
     // if someone creates a room the server updates us
     // about it
     socket.on('addroom', function(data){
-            addRoom(data.room, true);
+            addRoom(data.room, data.locat, true);
             });
     // if one of the room is empty from clients, the server,
     // destroys it and updates us
@@ -208,9 +204,6 @@ function bindSocketEvents(){
 }
 
 function connect(){
-    // show connecting message
-    $('.chat-shadow .content').html('Connecting...');
-
     // creating the connection and saving the socket
     socket = io.connect(serverAddress);
 
@@ -245,7 +238,7 @@ function close_popup(id)
 
             return;
         }
-    }   
+    }
 }
 
 //displays the popups. Displays based on the maximum number of popups that can be displayed on the current viewport width
@@ -292,26 +285,84 @@ function register_popup(id, name)
     element = element + '<div class="popup-head">';
     element = element + '<div class="popup-head-left">'+ name +'</div>';
     element = element + '<div class="popup-head-right"><a href="javascript:close_popup(\''+ id +'\');">&#10005;</a></div>';
-    element = element + '<div style="clear: both"></div></div><div class="popup-messages"></div></div>';
+    element = element + '<div style="clear: both"></div></div>';
+    element = element + '<div class="popup-messages"></div>';
+    element = element + '<input class="popup-input" type="text" placeholder="Type here..." autofocus /></div>';
 
     $( "body" ).append(element);
+    var tmp = '#'+id+' input';
+    
+    $(tmp).on('keydown', function(e){
+        var key = e.which || e.keyCode;
+        if(key == 13 || key == 10) { handleMessage($(tmp), name); }
+    });
+
+    socket.emit('subscribe', { room: name });
     popups.unshift(id);
 
     calculate_popups();
 }
 
-function addRoom(name, announce){
+// insert a message to the chat window, this function can be
+// called with some flags
+function insertMessage(sender, message, showTime, isMe, isServer){
+    var $html = $.tmpl(tmplt.message, {
+        sender: sender,
+        text: message,
+        time: showTime ? getTime() : ''
+    });
+    // if isMe is true, mark this message so we can
+    // know that this is our message in the chat window
+    if(isMe){
+        $html.addClass('marker');
+    }
+    // if isServer is true, mark this message as a server
+    // message
+    if(isServer){
+        $html.find('.sender').css('color', serverDisplayColor);
+    }
+    $html.appendTo('.chat-messages ul');
+    $('.chat-messages').animate({ scrollTop: $('.chat-messages ul').height() }, 100);
+}
+
+// handle the client messages
+function handleMessage(input_obj, roomName){
+    var message = input_obj.val().trim();
+    if(message){
+        // send the message to the server with the room name
+        socket.emit('chatmessage', { message: message, room: roomName });
+        // display the message in the chat window
+        insertMessage(nickname, message, true, true);
+        input_obj.val('');
+    }
+}
+
+// return a short time format for the messages
+function getTime(){
+    var date = new Date();
+    return (date.getHours() < 10 ? '0' + date.getHours().toString() : date.getHours()) + ':' +
+        (date.getMinutes() < 10 ? '0' + date.getMinutes().toString() : date.getMinutes());
+}
+
+function addRoom(name, pos, announce){
     // clear the trailing '/'
     name = name.replace('/','');
     // check if the room is not already in the list
-    if($('.chat-rooms ul li[data-roomId="' + name + '"]').length == 0){
-        $.tmpl(tmplt.room, { room: name }).appendTo('.chat-rooms ul');
+    var isCreated = false;
+    for(var i=0; i<popups.length; i++) {
+        if(popups[i] == name) isCreated = true;
+    }
+    if(!isCreated){
+        console.log(name);
+        newmap_marker(pos, name);
+//        $.tmpl(tmplt.room, { room: name }).appendTo('.chat-rooms ul');
         // if announce is true, show a message about this room
         if(announce){
             insertMessage(serverDisplayName, 'The room `' + name + '` created...', true, false, true);
         }
     }
 }
+
 // remove a room from the rooms list
 function removeRoom(name, announce){
     $('.chat-rooms ul li[data-roomId="' + name + '"]').remove();
