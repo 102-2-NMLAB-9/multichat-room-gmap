@@ -33,6 +33,7 @@
 <script type="text/javascript" src="/scripts/avgrund.js"></script>
 <script type="text/javascript"
     src="http://maps.googleapis.com/maps/api/js?key=AIzaSyAeOp9cC41LZc1EtZKmiWzOn0ol6Vd66TQ&sensor=false"></script>
+<script type="text/javascript" src="/scripts/markerwithlabel.js"></script>
 <script type="text/javascript">
     var map;
     var lct;
@@ -65,8 +66,10 @@
     }
 
     function placeMarker() {
-        var marker = new google.maps.Marker({
+        var marker = new MarkerWithLabel({
             position: lct,
+            labelContent: popups[0],
+            labelClass: "labels",
             title: popups[0],
             map: map
         });
@@ -84,8 +87,10 @@
     function newmap_marker(locat, name) {
         console.log(locat);
         console.log(name);
-        var marker = new google.maps.Marker({
+        var marker = new MarkerWithLabel({
             position: locat,
+            labelContent: name,
+            labelClass: "labels",
             title: name,
             map: map
         });
@@ -99,21 +104,11 @@
         });
     }
 
-    function deleteMarkers() {
-        for (var i = 0; i < markers.length; i++) {
-            markers[i].setMap(null);
-        }
-        markers = [];
-    }
-
 </script>
 </head>
 
 <body>
 <div id="map-canvas"></div>
-<div id="panel">
-<input onclick="deleteMarkers();" type=button value="Delete Markers">
-</div>
 
 <aside id="nickname-popup" class="popup animate avgrund-popup">
 <div class="title">Enter a nickname</div>
